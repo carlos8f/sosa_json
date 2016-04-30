@@ -8,7 +8,10 @@ function ran (method) {
   state[method]++;
 }
 
-var db = sosa_json({path: 'tests/test_' + Math.random().toString(16).slice(2) + '.json'});
+var db = sosa_json({
+  path: 'tests/test_' + Math.random().toString(16).slice(2) + '.json',
+  hashKeys: false
+});
 
 var humans = db('humans', {
   load: function (obj, opts, cb) {
