@@ -1,0 +1,15 @@
+{
+  "name": "sosa_json",
+  "version": "0.2.1",
+  "description": "Simple Object Storage Abstraction, JSON version",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test.js"
+  },
+  "author": "Carlos Rodriguez <carlos@s8f.org> (http://s8f.org/)",
+  "license": "MIT",
+  "dependencies": {
+    "mkdirp": "^0.5.1",
+    "sosa": "~1.0.0"
+  }
+}
