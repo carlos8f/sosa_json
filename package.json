@@ -11,6 +11,6 @@
   "dependencies": {
     "lockfile": "^1.0.1",
     "mkdirp": "^0.5.1",
-    "sosa": "~1.0.0"
+    "sosa": "^1.1.0"
   }
 }
