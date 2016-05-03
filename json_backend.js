@@ -34,33 +34,30 @@ module.exports = function (coll_name, backend_options) {
       : Array.isArray(id) ? id.join(':') : id;
   }
 
+  var cache = null;
+
   return {
     _getColl: function (mem) {
       mem[collKey] || (mem[collKey] = {keys: [], values: newObj()});
       return mem[collKey];
     },
     _readFile: function (cb) {
-      var self = this;
-      lockfile.lock(backend_options.path + '.lock', backend_options, function (err) {
-        if (err) return cb(err);
-        fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err1, raw) {
-          lockfile.unlock(backend_options.path + '.lock', function (err2) {
-            if (err1 && err1.code === 'ENOENT') {
-              return mkdirp(path.dirname(backend_options.path), function (err) {
-                cb(null, newObj());
-              });
-            }
-            else if (err1) return cb(err1);
-            else if (err2) return cb(err2);
-            try {
-              var mem = JSON.parse(raw);
-            }
-            catch (e) {
-              return cb(e);
-            }
-            cb(null, mem);
+      if (cache) return cb(null, cache);
+      fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err, raw) {
+        if (err && err.code === 'ENOENT') {
+          return mkdirp(path.dirname(backend_options.path), function (err) {
+            cb(null, newObj());
           });
-        });
+        }
+        else if (err) return cb(err);
+        try {
+          var mem = JSON.parse(raw);
+        }
+        catch (e) {
+          return cb(e);
+        }
+        cache = mem;
+        cb(null, mem);
       });
     },
     _writeFile: function (mem, cb) {
@@ -70,7 +67,6 @@ module.exports = function (coll_name, backend_options) {
       catch (e) {
         return cb(e);
       }
-      var self = this;
       lockfile.lock(backend_options.path + '.lock', backend_options, function (err) {
         if (err) return cb(err);
         fs.writeFile(backend_options.path, raw, function (err1) {
