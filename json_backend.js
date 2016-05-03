@@ -12,6 +12,18 @@ module.exports = function (coll_name, backend_options) {
   backend_options || (backend_options = {});
   if (typeof backend_options.hashKeys === 'undefined') backend_options.hashKeys = true;
   if (!backend_options.path) throw new Error('must pass a json file path with backend_options.path');
+  if (typeof backend_options.wait === 'undefined') {
+    backend_options.wait = 2010;
+  }
+  if (typeof backend_options.stale === 'undefined') {
+    backend_options.stale = 10000;
+  }
+  if (typeof backend_options.retries === 'undefined') {
+    backend_options.retries = 1;
+  }
+  if (typeof backend_options.retryWait === 'undefined') {
+    backend_options.retryWait = 1000;
+  }
   var coll_path = coll_name;
   if (backend_options.key_prefix) coll_path = [coll_path, backend_options.key_prefix];
   var collKey = hash(coll_path);
@@ -29,27 +41,27 @@ module.exports = function (coll_name, backend_options) {
     },
     _readFile: function (cb) {
       var self = this;
-      lockfile.check(backend_options.path + '.lock', backend_options, function (err, isLocked) {
+      lockfile.lock(backend_options.path + '.lock', backend_options, function (err) {
         if (err) return cb(err);
-        if (isLocked) return setTimeout(function () {
-          self._readFile(cb);
-        }, 1000);
-        fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err, raw) {
-          if (err && err.code === 'ENOENT') {
-            return mkdirp(path.dirname(backend_options.path), function (err) {
-              cb(null, newObj());
-            });
-          }
-          else if (err) return cb(err);
-          try {
-            var mem = JSON.parse(raw);
-          }
-          catch (e) {
-            return cb(e);
-          }
-          cb(null, mem);
+        fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err1, raw) {
+          lockfile.unlock(backend_options.path + '.lock', function (err2) {
+            if (err1 && err1.code === 'ENOENT') {
+              return mkdirp(path.dirname(backend_options.path), function (err) {
+                cb(null, newObj());
+              });
+            }
+            else if (err1) return cb(err1);
+            else if (err2) return cb(err2);
+            try {
+              var mem = JSON.parse(raw);
+            }
+            catch (e) {
+              return cb(e);
+            }
+            cb(null, mem);
+          });
         });
-      })
+      });
     },
     _writeFile: function (mem, cb) {
       try {
@@ -58,6 +70,7 @@ module.exports = function (coll_name, backend_options) {
       catch (e) {
         return cb(e);
       }
+      var self = this;
       lockfile.lock(backend_options.path + '.lock', backend_options, function (err) {
         if (err) return cb(err);
         fs.writeFile(backend_options.path, raw, function (err1) {
