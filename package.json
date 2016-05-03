@@ -1,6 +1,6 @@
 {
   "name": "sosa_json",
-  "version": "0.3.5",
+  "version": "1.0.0",
   "description": "Simple Object Storage Abstraction, JSON version",
   "main": "index.js",
   "scripts": {
