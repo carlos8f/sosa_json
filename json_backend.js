@@ -8,22 +8,12 @@ function PlainObject () {}
 PlainObject.prototype = Object.create(null);
 function newObj () { return new PlainObject }
 
+var globalCache = newObj();
+
 module.exports = function (coll_name, backend_options) {
   backend_options || (backend_options = {});
   if (typeof backend_options.hashKeys === 'undefined') backend_options.hashKeys = true;
   if (!backend_options.path) throw new Error('must pass a json file path with backend_options.path');
-  if (typeof backend_options.wait === 'undefined') {
-    backend_options.wait = 2010;
-  }
-  if (typeof backend_options.stale === 'undefined') {
-    backend_options.stale = 10000;
-  }
-  if (typeof backend_options.retries === 'undefined') {
-    backend_options.retries = 1;
-  }
-  if (typeof backend_options.retryWait === 'undefined') {
-    backend_options.retryWait = 1000;
-  }
   var coll_path = coll_name;
   if (backend_options.key_prefix) coll_path = [coll_path, backend_options.key_prefix];
   var collKey = hash(coll_path);
@@ -34,50 +24,43 @@ module.exports = function (coll_name, backend_options) {
       : Array.isArray(id) ? id.join(':') : id;
   }
 
-  var cache = null;
-
   return {
     _getColl: function (mem) {
       mem[collKey] || (mem[collKey] = {keys: [], values: newObj()});
       return mem[collKey];
     },
     _readFile: function (cb) {
-      if (cache) return cb(null, cache);
-      fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err, raw) {
+      if (globalCache[backend_options.path]) return cb(null, globalCache[backend_options.path]);
+      try {
+        var locked = lockfile.checkSync(backend_options.path + '.lock', backend_options);
+        if (locked) {
+          var err = new Error('db is locked by another process');
+          throw err;
+        }
+        lockfile.lockSync(backend_options.path + '.lock', backend_options);
+        var raw = fs.readFileSync(backend_options.path, {encoding: 'utf8'});
+        var mem = JSON.parse(raw);
+      }
+      catch (err) {
         if (err && err.code === 'ENOENT') {
-          return mkdirp(path.dirname(backend_options.path), function (err) {
-            cache = newObj()
-            cb(null, cache);
-          });
+          mkdirp.sync(path.dirname(backend_options.path));
+          globalCache[backend_options.path] = newObj();
+          return cb(null, globalCache[backend_options.path]);
         }
-        else if (err) return cb(err);
-        try {
-          var mem = JSON.parse(raw);
-        }
-        catch (e) {
-          return cb(e);
-        }
-        cache = mem;
-        cb(null, mem);
-      });
+        else return cb(err);
+      }
+      globalCache[backend_options.path] = mem;
+      cb(null, globalCache[backend_options.path]);
     },
     _writeFile: function (mem, cb) {
       try {
         var raw = JSON.stringify(mem, null, 2);
+        fs.writeFileSync(backend_options.path, raw);
       }
       catch (e) {
         return cb(e);
       }
-      lockfile.lock(backend_options.path + '.lock', backend_options, function (err) {
-        if (err) return cb(err);
-        fs.writeFile(backend_options.path, raw, function (err1) {
-          lockfile.unlock(backend_options.path + '.lock', function (err2) {
-            if (err1) return cb(err1);
-            if (err2) return cb(err2);
-            cb();
-          });
-        });
-      });
+      setImmediate(cb);
     },
     load: function (id, opts, cb) {
       var self = this;
@@ -140,3 +123,5 @@ module.exports = function (coll_name, backend_options) {
     }
   };
 };
+
+module.exports.globalCache = globalCache;
