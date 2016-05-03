@@ -9,6 +9,7 @@
   "author": "Carlos Rodriguez <carlos@s8f.org> (http://s8f.org/)",
   "license": "MIT",
   "dependencies": {
+    "lockfile": "^1.0.1",
     "mkdirp": "^0.5.1",
     "sosa": "~1.0.0"
   }
