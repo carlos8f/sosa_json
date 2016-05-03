@@ -46,7 +46,8 @@ module.exports = function (coll_name, backend_options) {
       fs.readFile(backend_options.path, {encoding: 'utf8'}, function (err, raw) {
         if (err && err.code === 'ENOENT') {
           return mkdirp(path.dirname(backend_options.path), function (err) {
-            cb(null, newObj());
+            cache = newObj()
+            cb(null, cache);
           });
         }
         else if (err) return cb(err);
