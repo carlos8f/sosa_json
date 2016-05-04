@@ -14,20 +14,24 @@ module.exports = function (coll_name, backend_options) {
   backend_options || (backend_options = {});
   if (typeof backend_options.hashKeys === 'undefined') backend_options.hashKeys = true;
   if (!backend_options.path) throw new Error('must pass a json file path with backend_options.path');
-  var coll_path = coll_name;
-  if (backend_options.key_prefix) coll_path = [coll_path, backend_options.key_prefix];
-  var collKey = hash(coll_path);
+
+  function escapeBase64 (str) {
+    return str.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+  }
 
   function hash (id) {
-    return backend_options.hashKeys
-      ? crypto.createHash('sha1').update(JSON.stringify(id)).digest('hex')
-      : Array.isArray(id) ? id.join(':') : id;
+    return backend_options.hashKeys ? escapeBase64(crypto.createHash('sha1').update(id).digest('base64')) : id.replace(/\./g, '')
+  }
+
+  var coll_path = coll_name;
+  if (backend_options.key_prefix && backend_options.key_prefix.length) {
+    coll_path += '.' + backend_options.key_prefix.map(hash).join('.')
   }
 
   return {
     _getColl: function (mem) {
-      mem[collKey] || (mem[collKey] = {keys: [], values: newObj()});
-      return mem[collKey];
+      mem[coll_path] || (mem[coll_path] = {keys: [], values: newObj()});
+      return mem[coll_path];
     },
     _readFile: function (cb) {
       if (globalCache[backend_options.path]) return cb(null, globalCache[backend_options.path]);
