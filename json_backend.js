@@ -59,7 +59,7 @@ module.exports = function (coll_name, backend_options) {
     _writeFile: function (mem, cb) {
       try {
         var raw = JSON.stringify(mem, null, 2);
-        fs.writeFileSync(backend_options.path, raw);
+        fs.writeFileSync(backend_options.path, raw, {mode: parseInt('0600', 8)});
       }
       catch (e) {
         return cb(e);
